@@ -17,44 +17,50 @@ package com.ja.junit.rule.glassfish;
 
 import static org.junit.Assert.fail;
 
-import java.io.File;
-import java.net.HttpURLConnection;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Stack;
-import java.util.concurrent.ArrayBlockingQueue;
 
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
+
 import org.glassfish.embeddable.GlassFish;
 import org.glassfish.embeddable.GlassFishException;
-import org.glassfish.embeddable.GlassFishProperties;
 import org.glassfish.embeddable.GlassFishRuntime;
 import org.junit.rules.ExternalResource;
 import org.junit.rules.TemporaryFolder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import com.ja.junit.rule.glassfish.admin.AbstractAdminObject;
+import com.ja.junit.rule.glassfish.execute.HttpExecutor;
 
 /**
  * A JUnit Rule that controlls an embedded Glassfish instance.
  * 
  * @author Thomas Scheuchzer, www.java-adventures.com
- *
+ * 
  */
+@Slf4j
 public class GlassfishController extends ExternalResource {
-	private Logger log = LoggerFactory.getLogger(GlassfishController.class);
 	private static GlassFishRuntime gfr;
 	private static GlassFish gf;
-	private final Collection<StartupCommand> startupCommands = new ArrayBlockingQueue<>(10000);
-	private final Stack<TeardownCommand> teardownCommands = new Stack<>();
-	
-	private GlassFishFuture glassfishFuture = new GlassFishFuture();
-	
-	private TemporaryFolder tmpFolder = new TemporaryFolder();
-	private File loginConf;
-	private GlassFishProperties props = new GlassFishProperties();
+	private final Collection<AbstractAdminObject> startupCommands = new ArrayList<>();
+	private final Stack<AbstractAdminObject> teardownCommands = new Stack<>();
 
-	public GlassfishController() {
+	private final GlassfishFuture glassfishFuture = new GlassfishFuture();
+
+	private final TemporaryFolder tmpFolder = new TemporaryFolder();
+
+	private final GlassfishPreStartConfigurator configurator;
+
+	private final TestContext ctx = new TestContext(tmpFolder, startupCommands,
+			teardownCommands, glassfishFuture);
+
+	public GlassfishController(
+			@NonNull final GlassfishPreStartConfigurator configurator) {
+		this.configurator = configurator;
 	}
 
 	@Override
@@ -64,51 +70,38 @@ public class GlassfishController extends ExternalResource {
 	}
 
 	public void start() {
-		setupLoginConfig();
 		try {
 			if (gfr == null) {
 				gfr = GlassFishRuntime.bootstrap();
-				gf = gfr.newGlassFish(props);
-				glassfishFuture.setGlassFish(gf);
+			}
+			if (gf == null) {
+				gf = gfr.newGlassFish(configurator.getProps());
 				gf.start();
 			}
-// TODO: worker thread
-			for (StartupCommand command : startupCommands) {
+			glassfishFuture.setGlassFish(gf);
+
+			log.info("Executing {} startup commands.", startupCommands.size());
+			for (AbstractAdminObject command : startupCommands) {
 				try {
-					command.execute();
+					command.execute(ctx);
 				} catch (Exception e) {
 					log.error("Startup failed. ", e);
 					fail();
 				}
 			}
 		} catch (GlassFishException e) {
-			throw new RuntimeException("Startup failed", e);
+			log.error("Startup failed", e);
+			fail();
 		}
-	}
-
-	private void setupLoginConfig() {
-		if (loginConf == null) {
-			return;
-		}
-		log.info("Login-Config={}", loginConf.getAbsolutePath());
-		final String loginConfProperty = "java.security.auth.login.config";
-		final String loginConfBackup = System.getProperty(loginConfProperty);
-		System.setProperty(loginConfProperty, loginConf.getAbsolutePath());
-		teardownCommands.add(new TeardownCommand() {
-
-			@Override
-			public void execute() {
-				System.setProperty(loginConfProperty, loginConfBackup);
-
-			}
-		});
 	}
 
 	public void stop() {
 		try {
 			gf.stop();
 			gf.dispose();
+			gf = null;
 			gfr.shutdown();
+			gfr = null;
 		} catch (Exception e) {
 			throw new RuntimeException("Shutdown failed", e);
 		}
@@ -123,16 +116,15 @@ public class GlassfishController extends ExternalResource {
 	}
 
 	public void cleanup() {
-		log.info("Executing {} cleanup commands.", teardownCommands.size());
+		log.info("Executing {} teardown commands.", teardownCommands.size());
 		while (!teardownCommands.isEmpty()) {
 			try {
-				teardownCommands.pop().execute();
+				teardownCommands.pop().execute(ctx);
 			} catch (Exception e) {
 				log.info("CleanupCommand failed");
 			}
 		}
 	}
-
 
 	@SuppressWarnings("unchecked")
 	public <T> T lookup(String jndiName) {
@@ -143,22 +135,24 @@ public class GlassfishController extends ExternalResource {
 		}
 	}
 
-	public GlassfishController setLoginConf(File loginConf) {
-		this.loginConf = loginConf;
-		return this;
-	}
-
-	public GlassfishController setHttpPort(int port) {
-		props.setPort("http-listener", port);
-		return this;
-	}
-
-	public HttpURLConnection executeHttpRequest(String path) {
+	public Response executeHttpRequest(String path) {
 		return executeHttpRequest(path, null, null);
 	}
 
-	public HttpURLConnection executeHttpRequest(final String path,
+	public Response executeHttpRequest(final String path,
 			final String username, final String password) {
-		return new HttpExecutor(path, username, password, props).execute();
+		return new HttpExecutor(path, username, password,
+				configurator.getProps()).execute();
 	}
+
+	public GlassfishController create(AbstractAdminObject cfg) {
+		try {
+			ctx.addStartCommand(cfg);
+		} catch (Exception e) {
+			log.error("Command execution failed", cfg);
+			fail();
+		}
+		return this;
+	}
+
 }

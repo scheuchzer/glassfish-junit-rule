@@ -2,5 +2,5 @@ package com.ja.junit.rule.glassfish;
 
 public interface StartupCommand {
 
-	 void execute() throws Exception;
+	void execute(final TestContext ctx) throws Exception;
 }

@@ -6,6 +6,8 @@ import java.io.File;
 import java.util.Collection;
 import java.util.Stack;
 
+import lombok.extern.slf4j.Slf4j;
+
 import org.glassfish.embeddable.CommandResult;
 import org.glassfish.embeddable.CommandRunner;
 import org.glassfish.embeddable.Deployer;
@@ -13,20 +15,20 @@ import org.glassfish.embeddable.GlassFishException;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.junit.rules.TemporaryFolder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import com.ja.junit.rule.glassfish.admin.AbstractAdminObject;
+
+@Slf4j
 public class TestContext {
-	private final Logger log = LoggerFactory.getLogger(TestContext.class);
 
 	private final TemporaryFolder tmpFolder;
-	private final GlassFishFuture gf;
-	private final Collection<StartupCommand> startupCommands;
-	private final Stack<TeardownCommand> teardownCommands;
+	private final GlassfishFuture gf;
+	private final Collection<AbstractAdminObject> startupCommands;
+	private final Stack<AbstractAdminObject> teardownCommands;
 
 	public TestContext(TemporaryFolder tmpFolder,
-			Collection<StartupCommand> startupCommands,
-			Stack<TeardownCommand> teardownCommands, GlassFishFuture gf) {
+			Collection<AbstractAdminObject> startupCommands,
+			Stack<AbstractAdminObject> teardownCommands, GlassfishFuture gf) {
 		this.gf = gf;
 		this.startupCommands = startupCommands;
 		this.teardownCommands = teardownCommands;
@@ -60,13 +62,22 @@ public class TestContext {
 	 * 
 	 * @param startupCommand
 	 */
-	public void add(StartupCommand startupCommand) {
+	public void addStartCommand(AbstractAdminObject startupCommand) {
 		if (startupCommand != null) {
-			startupCommands.add(startupCommand);
+			if (gf.get() != null) {
+				try {
+					startupCommand.execute(this);
+				} catch (Exception e) {
+					log.error("StartupCommand failed.", e);
+					fail();
+				}
+			} else {
+				startupCommands.add(startupCommand);
+			}
 		}
 	}
 
-	public void add(TeardownCommand teardownCommand) {
+	public void addTeardownCommand(AbstractAdminObject teardownCommand) {
 		if (teardownCommand != null) {
 			teardownCommands.add(teardownCommand);
 		}

@@ -9,7 +9,7 @@ import org.glassfish.embeddable.GlassFish;
  * @author Thomas Scheuchzer, www.java-adventures.com
  * 
  */
-public class GlassFishFuture {
+public class GlassfishFuture {
 
 	private GlassFish glassFish;
 
