@@ -8,11 +8,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.glassfish.embeddable.GlassFishProperties;
 
+import com.ja.junit.rule.glassfish.admin.AbstractAdminObject;
+
 @Slf4j
 public class GlassfishPreStartConfigurator {
 
 	@Getter
-	private final Stack<TeardownCommand> teardownCommands = new Stack<>();
+	private final Stack<AbstractAdminObject> teardownCommands = new Stack<>();
 
 	@Getter
 	private final GlassFishProperties props = new GlassFishProperties();
@@ -22,7 +24,7 @@ public class GlassfishPreStartConfigurator {
 		final String loginConfProperty = "java.security.auth.login.config";
 		final String loginConfBackup = System.getProperty(loginConfProperty);
 		System.setProperty(loginConfProperty, loginConf.getAbsolutePath());
-		teardownCommands.add(new TeardownCommand() {
+		teardownCommands.add(new AbstractAdminObject() {
 
 			@Override
 			public void execute(final TestContext ctx) {

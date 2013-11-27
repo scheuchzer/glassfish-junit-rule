@@ -83,6 +83,7 @@ public class GlassfishController extends ExternalResource {
 			log.info("Executing {} startup commands.", startupCommands.size());
 			for (AbstractAdminObject command : startupCommands) {
 				try {
+					log.info("Executing command: {}", command);
 					command.execute(ctx);
 				} catch (Exception e) {
 					log.error("Startup failed. ", e);
@@ -111,6 +112,10 @@ public class GlassfishController extends ExternalResource {
 	@Override
 	protected void after() {
 		cleanup();
+		/*
+		 * This is strange. If we stop Glassfish after every test,
+		 * authentication won't work anymore. Every call is OK.
+		 */
 		// stop();
 		tmpFolder.delete();
 	}
