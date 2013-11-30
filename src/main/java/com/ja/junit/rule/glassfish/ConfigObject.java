@@ -1,7 +1,11 @@
 package com.ja.junit.rule.glassfish;
 
+import java.util.Properties;
+
 import org.jboss.shrinkwrap.api.Archive;
 
+import com.ja.junit.rule.glassfish.admin.ConnectorConnectionPoolCreate;
+import com.ja.junit.rule.glassfish.admin.ConnectorResourceCreate;
 import com.ja.junit.rule.glassfish.admin.DefaultUserAndGroupTableEntryCreate;
 import com.ja.junit.rule.glassfish.admin.DefaultUserAndGroupTablesCreate;
 import com.ja.junit.rule.glassfish.admin.DeploymentCreate;
@@ -28,5 +32,25 @@ public class ConfigObject {
 
 	public static DeploymentCreate deployment(final Archive<?> archive) {
 		return new DeploymentCreate(archive);
+	}
+
+	/**
+	 * 
+	 * @param raname
+	 *            the name of the connector/resource adapter
+	 * @param connectionDefinition
+	 *            The connection interface
+	 * @param poolName
+	 * @param connectionConfigProperties
+	 * @return
+	 */
+	public static ConnectorConnectionPoolCreate connectorConnectionPool(final String raname, final Class<?> connectionDefinition,
+				final String poolName, Properties connectionConfigProperties) {
+		return new ConnectorConnectionPoolCreate(raname, connectionDefinition, poolName, connectionConfigProperties);
+	}
+
+	public static ConnectorResourceCreate connectorResource(
+			final String poolName, final String jndiName) {
+		return new ConnectorResourceCreate(poolName, jndiName);
 	}
 }
