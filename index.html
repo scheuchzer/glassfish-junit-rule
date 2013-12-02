@@ -46,7 +46,77 @@ Releases are available through the maven central repository.
 ```
 ### Write a JUnit Test
 
-TODO
+The main class is the JUnit Rule ``com.ja.junit.rule.glassfish.GlassfishController``. Artifacts like applications, resource adapters, connections and pools are created with the ``create`` method. During the create call the removal of that artifact is autamatically registered for removal during the teardown phase of the JUnit test. Therefore, you don't have to care about cleanup. The ``create`` method takes one parameter of type ``AbstractAdminObject``. Use the static factory method of ``com.ja.junit.rule.glassfish.ConfigObject`` to create that parameter. It's recommended that you use static imports here.
+
+Another important method is the ``lookup`` method. This method gives you acceess to JNDI.
+
+Now let's see some examples
+
+#### Test a Realm
+
+Thie code has been taken from http://www.java-adventures.com/glassfish-jdbc-realm-salted/
+
+```java
+private final GlassfishPreStartConfigurator startCfg = new GlassfishPreStartConfigurator();
+
+@Rule
+public GlassfishController glassfish = new GlassfishController(startCfg)
+		// create user and role tables
+		.create(defaultUserAndGroupTables())
+		// register the jdbc realm
+		.create(jdbcAuthRealm("testRealm", "jdbcSaltRealm", JDBCRealm.class));
+
+public JDBCRealmIT() throws URISyntaxException {
+	// open a http port
+	startCfg.setHttpPort(8642)
+	// provide a login.conf that registers the needed login module
+	.setLoginConf(new File(getClass().getClassLoader().getResource("login.conf").toURI()));
+}
+
+@Test
+public void testLoginValidUser() throws Exception {
+	// create a new user in the default database
+	glassfish.create(user("test", "abc123", "test"));
+	deployDummyApp();
+
+	Response response = glassfish.executeHttpRequest("/test/dummy", "test",	"abc123");
+	assertThat(response.getStatus(), is(200));
+	assertThat(response.getContentAsString(), is("OK"));
+}
+
+private void deployDummyApp() {
+	...
+}
+```
+#### Test a Resource Adapter
+
+This code has been taken from https://github.com/scheuchzer/outbound-connector
+
+```java
+@Rule
+public GlassfishController gf = new GlassfishController(new GlassfishPreStartConfigurator());
+
+@Test
+public void testResourceAdapterDeploymentWithNoFormatProperty()
+		throws Exception {
+	// deploy the resource adapter archive
+	gf.create(deployment(createRarArchive("someDummy.rar")));
+	// create a connection pool
+	gf.create(connectorConnectionPool("someDummy", DummyConnectionFactory.class, "someDummyPool", new Properties()));
+	// create the resource
+	gf.create(connectorResource("someDummyPool", "jca/someDummy"));
+	// look up the resource
+	DummyConnectionFactory factory = gf.lookup("jca/someDummy");	
+	assertThat(factory, is(notNullValue()));
+	// get the connection and invoke some method on it
+	try (DummyConnection connection = factory.getConnection()) {
+		assertThat(connection, is(notNullValue()));
+		assertEquals(TimeDummyConnection.class, connection.getClass());
+		String time = connection.getTime();
+		...
+	}
+}
+```
 
 ## Author
 
