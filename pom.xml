@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.java-adventures.junit</groupId>
 	<artifactId>glassfish-junit-rule</artifactId>
-	<version>0.3.0</version>
+	<version>0.3.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 	<name>Glassfish JUnit Rule</name>
 	<url>http://java-adventures.com/glassfish-junit-rule</url>
@@ -172,7 +172,7 @@
 		<url>git@github.com:scheuchzer/glassfish-junit-rule.git</url>
 		<connection>scm:git:git@github.com:scheuchzer/glassfish-junit-rule.git</connection>
 		<developerConnection>scm:git:git@github.com:scheuchzer/glassfish-junit-rule.git</developerConnection>
-		<tag>glassfish-junit-rule-0.3.0</tag>
+		<tag>HEAD</tag>
 	</scm>
 	<distributionManagement>
 		<snapshotRepository>
